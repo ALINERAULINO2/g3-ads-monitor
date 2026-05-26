@@ -542,6 +542,36 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ─── GLOSSÁRIO ───────────────────────────────────────────────────────────────
+with st.expander("O que significam essas siglas? (clique para ver)"):
+    st.markdown(f"""
+<div class="gloss-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;padding:4px 0;">
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPL — Custo por Lead</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto voce paga por cada lead gerado. Se o CPL for R$ 4,00, cada pessoa interessada custou R$ 4,00. <b>Quanto menor, melhor.</b></div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CTR — Taxa de Cliques</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">De cada 100 pessoas que viram o anuncio, quantas clicaram. CTR de 2% = 2 em cada 100 clicaram. <b>Acima de 1,5% e considerado bom.</b></div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPC — Custo por Clique</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto voce paga por cada clique no anuncio, independente de virar lead ou nao. <b>Quanto menor, mais eficiente.</b></div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPM — Custo por Mil Impressoes</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto custa exibir o anuncio 1.000 vezes. Indica o custo de aparecer para as pessoas, antes mesmo do clique.</div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">Frequencia</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quantas vezes em media a mesma pessoa viu seu anuncio. Frequencia 5,5x = a mesma pessoa viu 5,5 vezes. <b>Acima de 3,5x o publico comeca a se cansar.</b></div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">Impressoes</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Total de vezes que o anuncio foi exibido. Uma mesma pessoa pode gerar varias impressoes. Diferente de Alcance, que conta pessoas unicas.</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ─── EVOLUÇÃO DIÁRIA + DONUT ──────────────────────────────────────────────────
 st.markdown('<div class="sec-hd">Evolucao Diaria</div>', unsafe_allow_html=True)
@@ -800,37 +830,6 @@ if ads_validos:
 else:
     st.info("Nenhum anuncio com gasto no periodo selecionado.")
 
-
-# ─── GLOSSÁRIO ───────────────────────────────────────────────────────────────
-with st.expander("O que significam essas siglas? (clique para ver)"):
-    st.markdown(f"""
-<div class="gloss-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;padding:4px 0;">
-  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
-    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPL — Custo por Lead</div>
-    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto voce paga por cada lead gerado. Se o CPL for R$ 4,00, cada pessoa interessada custou R$ 4,00. <b>Quanto menor, melhor.</b></div>
-  </div>
-  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
-    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CTR — Taxa de Cliques</div>
-    <div style="color:{TEXT};font-size:12px;line-height:1.6;">De cada 100 pessoas que viram o anuncio, quantas clicaram. CTR de 2% = 2 em cada 100 clicaram. <b>Acima de 1,5% e considerado bom.</b></div>
-  </div>
-  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
-    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPC — Custo por Clique</div>
-    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto voce paga por cada clique no anuncio, independente de virar lead ou nao. <b>Quanto menor, mais eficiente.</b></div>
-  </div>
-  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
-    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPM — Custo por Mil Impressoes</div>
-    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto custa exibir o anuncio 1.000 vezes. Indica o custo de "aparecer" para as pessoas, antes mesmo do clique.</div>
-  </div>
-  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
-    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">Frequencia</div>
-    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quantas vezes em media a mesma pessoa viu seu anuncio. Frequencia 5,5x = a mesma pessoa viu o anuncio 5,5 vezes. <b>Acima de 3,5x o publico comeca a se cansar (saturacao).</b></div>
-  </div>
-  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
-    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">Impressoes</div>
-    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Total de vezes que o anuncio foi exibido na tela de alguem. Uma mesma pessoa pode gerar varias impressoes. Diferente de Alcance, que conta pessoas unicas.</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
 
 # ─── ALERTAS ─────────────────────────────────────────────────────────────────
 st.markdown('<div class="sec-hd">Alertas e Recomendacoes</div>', unsafe_allow_html=True)
