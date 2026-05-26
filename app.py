@@ -866,7 +866,7 @@ with a_col:
 st.divider()
 st.markdown(
     f'<div style="font-size:10px;color:{MUTED};text-align:center;padding:2px 0 12px;">'
-    f'G3 Veiculos &middot; Trafego Pago G3 &middot; Meta Ads API &middot; '
+    f'G3 Veiculos &middot; <a href="https://bit.ly/trafegopagoG3" style="color:#F7931E;text-decoration:none;">bit.ly/trafegopagoG3</a> &middot; '
     f'{ini.strftime("%d/%m/%Y")} ate {fim.strftime("%d/%m/%Y")} &middot; '
     f'Atualizado {datetime.now().strftime("%d/%m/%Y %H:%M")}'
     f'</div>',
