@@ -123,6 +123,14 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
 .badge-pausar    { background:#2d0a0a; color:#f87171; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
 .badge-monitorar { background:#172554; color:#93c5fd; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
 .badge-aguardar  { background:#1c1917; color:#a8a29e; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
+/* ── Status do anúncio ── */
+.st-ativo       { background:#052d16; color:#4ade80; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
+.st-pausado     { background:#2d2000; color:#fbbf24; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
+.st-reprovado   { background:#2d0a0a; color:#f87171; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
+.st-arquivado   { background:#1c1917; color:#78716c; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
+.st-revisao     { background:#1e1b4b; color:#a5b4fc; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
+.st-problema    { background:#2d1500; color:#fb923c; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
+.st-desconhecido{ background:#111; color:#6b7280; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
 
 /* ── Print ── */
 @media print {
@@ -186,6 +194,25 @@ def get_ads(since, until):
     })
     return sorted(d.get("data", []), key=lambda x: float(x.get("spend", 0)), reverse=True)
 
+@st.cache_data(ttl=900, show_spinner=False)
+def get_ad_statuses():
+    """Busca status atual de todos os anúncios (não vem no insights)."""
+    result, after = {}, None
+    for _ in range(10):  # máx 10 páginas
+        params = {"fields": "id,status,effective_status,name", "limit": 200}
+        if after:
+            params["after"] = after
+        d = _api(f"{ACCOUNT}/ads", params)
+        for ad in d.get("data", []):
+            result[ad["id"]] = {
+                "status":           ad.get("status", "UNKNOWN"),
+                "effective_status": ad.get("effective_status", "UNKNOWN"),
+            }
+        after = d.get("paging", {}).get("cursors", {}).get("after")
+        if not after or not d.get("data"):
+            break
+    return result
+
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 def leads_de(actions):
@@ -239,6 +266,26 @@ def badge_html(b):
     m = {"ESCALAR":"escalar","PAUSAR":"pausar","MONITORAR":"monitorar","AGUARDAR":"aguardar"}
     return f'<span class="badge-{m[b]}">{b}</span>'
 
+_STATUS_MAP = {
+    # effective_status (prioridade — reflete estado real incluindo campanha/conjunto pai)
+    "ACTIVE":           ("st-ativo",        "ATIVO"),
+    "PAUSED":           ("st-pausado",      "PAUSADO"),
+    "CAMPAIGN_PAUSED":  ("st-pausado",      "CAMPANHA PAUSADA"),
+    "ADSET_PAUSED":     ("st-pausado",      "CONJUNTO PAUSADO"),
+    "DISAPPROVED":      ("st-reprovado",    "REPROVADO"),
+    "PENDING_REVIEW":   ("st-revisao",      "EM REVISAO"),
+    "IN_PROCESS":       ("st-revisao",      "PROCESSANDO"),
+    "WITH_ISSUES":      ("st-problema",     "COM PROBLEMA"),
+    "ARCHIVED":         ("st-arquivado",    "ARQUIVADO"),
+    "DELETED":          ("st-arquivado",    "DELETADO"),
+}
+
+def status_html(ad_id, statuses_dict):
+    info = statuses_dict.get(str(ad_id), {})
+    eff  = info.get("effective_status", "UNKNOWN")
+    cls, label = _STATUS_MAP.get(eff, ("st-desconhecido", eff))
+    return f'<span class="{cls}">{label}</span>'
+
 def _chart_layout(fig, height=340):
     fig.update_layout(
         height=height, margin=dict(l=0, r=10, t=30, b=0),
@@ -253,14 +300,16 @@ def _chart_layout(fig, height=340):
     fig.update_yaxes(gridcolor="#222", tickcolor=MUTED, linecolor=BORDER, color=MUTED)
     return fig
 
+_HTML_COLS = {"Campanha","Anuncio","Conjunto","Acao","Status"}
+
 def html_table(rows, cols):
     """Renderiza tabela HTML customizada com tema escuro."""
     ths = "".join(f"<th>{c}</th>" for c in cols)
     trs = ""
     for row in rows:
         tds = "".join(
-            f'<td class="num">{row.get(c,"—")}</td>' if c not in ("Campanha","Anuncio","Conjunto","Acao")
-            else f'<td>{row.get(c,"—")}</td>'
+            f'<td>{row.get(c,"—")}</td>' if c in _HTML_COLS
+            else f'<td class="num">{row.get(c,"—")}</td>'
             for c in cols
         )
         trs += f"<tr>{tds}</tr>"
@@ -336,11 +385,12 @@ with st.spinner("Verificando acesso Meta Ads..."):
 
 # ─── Carregar dados ───────────────────────────────────────────────────────────
 with st.spinner("Carregando dados..."):
-    conta     = get_conta(since, until)
-    conta_ant = get_conta(psince, puntil)
-    serie     = get_serie(since, until)
-    campanhas = get_campanhas(since, until)
-    ads_data  = get_ads(since, until)
+    conta      = get_conta(since, until)
+    conta_ant  = get_conta(psince, puntil)
+    serie      = get_serie(since, until)
+    campanhas  = get_campanhas(since, until)
+    ads_data   = get_ads(since, until)
+    ad_statuses = get_ad_statuses()
 
 # ─── Cálculos ────────────────────────────────────────────────────────────────
 def _f(d, k): return float(d.get(k, 0) or 0)
@@ -577,7 +627,9 @@ if ads_validos:
         freq_= float(a.get("frequency",0))
         ld   = leads_de(a.get("actions",[]))
         badge = _rec(a)
+        ad_id = a.get("ad_id","")
         rows_a.append({
+            "Status":    status_html(ad_id, ad_statuses),
             "Acao":      badge_html(badge),
             "Anuncio":   a.get("ad_name","?")[:45],
             "Campanha":  a.get("campaign_name","?")[:30],
@@ -591,7 +643,7 @@ if ads_validos:
             "Cliques":   f"{int(float(a.get('clicks',0))):,}".replace(",","."),
         })
 
-    cols_a = ["Acao","Anuncio","Campanha","Gasto","Leads","CPL","CTR","CPC","CPM","Freq.","Cliques"]
+    cols_a = ["Status","Acao","Anuncio","Campanha","Gasto","Leads","CPL","CTR","CPC","CPM","Freq.","Cliques"]
     st.markdown(html_table(rows_a, cols_a), unsafe_allow_html=True)
 
     with st.expander("Ver grafico: Top criativos por gasto"):
