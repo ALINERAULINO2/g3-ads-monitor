@@ -132,6 +132,44 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
 .st-problema    { background:#2d1500; color:#fb923c; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
 .st-desconhecido{ background:#111; color:#6b7280; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; }
 
+/* ── Mobile ── */
+@media (max-width: 768px) {
+    .block-container { padding: 0.4rem 0.4rem !important; }
+
+    /* Header empilhado */
+    .g3-header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+    .g3-header > div:first-child { flex-direction: column; gap: 8px; }
+    .g3-title { font-size: 18px; }
+    .g3-sub   { font-size: 10px; }
+    .g3-badge { font-size: 9px; padding: 4px 10px; align-self: flex-start; }
+
+    /* KPI cards: 2 por linha */
+    .kpi-wrap { gap: 8px; }
+    .kpi-card { min-width: calc(50% - 4px) !important; flex: 1 1 calc(50% - 4px) !important;
+                padding: 10px 12px; }
+    .kpi-val  { font-size: 17px !important; }
+    .kpi-lbl  { font-size: 8px !important; }
+    .kpi-sub, .kpi-delta { font-size: 10px !important; }
+
+    /* Colunas Streamlit empilham */
+    [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
+    [data-testid="column"] { min-width: 100% !important; width: 100% !important; }
+
+    /* Tabela menor */
+    .g3-table { font-size: 11px; }
+    .g3-table th { font-size: 9px; padding: 6px 8px; }
+    .g3-table td { padding: 6px 8px; }
+
+    /* Alertas */
+    .al { font-size: 11px; padding: 8px 12px; }
+
+    /* Seção */
+    .sec-hd { font-size: 10px; margin: 14px 0 8px; }
+
+    /* Glossario: 1 coluna */
+    .gloss-grid { grid-template-columns: 1fr !important; }
+}
+
 /* ── Print ── */
 @media print {
     [data-testid="stSidebar"], [data-testid="stHeader"],
@@ -766,7 +804,7 @@ else:
 # ─── GLOSSÁRIO ───────────────────────────────────────────────────────────────
 with st.expander("O que significam essas siglas? (clique para ver)"):
     st.markdown(f"""
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;padding:4px 0;">
+<div class="gloss-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;padding:4px 0;">
   <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
     <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPL — Custo por Lead</div>
     <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto voce paga por cada lead gerado. Se o CPL for R$ 4,00, cada pessoa interessada custou R$ 4,00. <b>Quanto menor, melhor.</b></div>
