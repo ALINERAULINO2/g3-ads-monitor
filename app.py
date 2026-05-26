@@ -158,7 +158,7 @@ def _api(endpoint, params=None):
 def check_token():
     return "error" not in _api("me", {"fields": "id"})
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=900, show_spinner=False)
 def get_conta(since, until):
     d = _api(f"{ACCOUNT}/insights", {
         "fields": "impressions,reach,clicks,spend,ctr,cpc,cpm,frequency,actions",
@@ -167,7 +167,7 @@ def get_conta(since, until):
     })
     return (d.get("data") or [{}])[0]
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=900, show_spinner=False)
 def get_serie(since, until):
     d = _api(f"{ACCOUNT}/insights", {
         "fields": "spend,ctr,impressions,clicks,actions",
@@ -176,7 +176,7 @@ def get_serie(since, until):
     })
     return sorted(d.get("data", []), key=lambda x: x.get("date_start", ""))
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=900, show_spinner=False)
 def get_campanhas(since, until):
     d = _api(f"{ACCOUNT}/insights", {
         "fields": "campaign_id,campaign_name,impressions,reach,clicks,spend,ctr,cpc,cpm,frequency,actions",
@@ -185,7 +185,7 @@ def get_campanhas(since, until):
     })
     return sorted(d.get("data", []), key=lambda x: float(x.get("spend", 0)), reverse=True)
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=900, show_spinner=False)
 def get_ads(since, until):
     d = _api(f"{ACCOUNT}/insights", {
         "fields": "ad_id,ad_name,campaign_name,adset_name,impressions,clicks,spend,ctr,cpc,cpm,frequency,actions",
@@ -386,6 +386,30 @@ with st.sidebar:
     st.caption(f"Conta: {ACCOUNT}")
     st.caption(f"{ini.strftime('%d/%m/%Y')} ate {fim.strftime('%d/%m/%Y')}")
     st.caption(f"vs. {prev_ini.strftime('%d/%m')} a {prev_fim.strftime('%d/%m/%Y')}")
+    # Contador regressivo de auto-refresh
+    st.markdown(
+        '<div id="refresh-counter" style="font-size:10px;color:#6b7280;margin-top:8px;">'
+        'Prox. atualizacao em <span id="rtimer" style="color:#F7931E;font-weight:700;">15:00</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+# Auto-refresh a cada 15 minutos (900 segundos)
+st.components.v1.html("""
+<script>
+var secs = 900;
+function tick() {
+    secs--;
+    if (secs <= 0) { window.parent.location.reload(); return; }
+    var m = String(Math.floor(secs/60)).padStart(2,'0');
+    var s = String(secs%60).padStart(2,'0');
+    var el = window.parent.document.getElementById('rtimer');
+    if (el) el.textContent = m+':'+s;
+    setTimeout(tick, 1000);
+}
+setTimeout(tick, 1000);
+</script>
+""", height=0)
 
 
 # ─── Validações ───────────────────────────────────────────────────────────────
