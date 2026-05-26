@@ -179,7 +179,7 @@ def get_serie(since, until):
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_campanhas(since, until):
     d = _api(f"{ACCOUNT}/insights", {
-        "fields": "campaign_name,impressions,reach,clicks,spend,ctr,cpc,cpm,frequency,actions",
+        "fields": "campaign_id,campaign_name,impressions,reach,clicks,spend,ctr,cpc,cpm,frequency,actions",
         "time_range": f'{{"since":"{since}","until":"{until}"}}',
         "level": "campaign", "limit": 50,
     })
@@ -193,6 +193,22 @@ def get_ads(since, until):
         "level": "ad", "limit": 200,
     })
     return sorted(d.get("data", []), key=lambda x: float(x.get("spend", 0)), reverse=True)
+
+@st.cache_data(ttl=900, show_spinner=False)
+def get_campaign_statuses():
+    """Busca status atual de todas as campanhas."""
+    result, after = {}, None
+    for _ in range(5):
+        params = {"fields": "id,status,effective_status", "limit": 200}
+        if after:
+            params["after"] = after
+        d = _api(f"{ACCOUNT}/campaigns", params)
+        for camp in d.get("data", []):
+            result[camp["id"]] = camp.get("effective_status", "UNKNOWN")
+        after = d.get("paging", {}).get("cursors", {}).get("after")
+        if not after or not d.get("data"):
+            break
+    return result
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_ad_statuses():
@@ -389,8 +405,9 @@ with st.spinner("Carregando dados..."):
     conta_ant  = get_conta(psince, puntil)
     serie      = get_serie(since, until)
     campanhas  = get_campanhas(since, until)
-    ads_data   = get_ads(since, until)
-    ad_statuses = get_ad_statuses()
+    ads_data        = get_ads(since, until)
+    ad_statuses     = get_ad_statuses()
+    camp_statuses   = get_campaign_statuses()
 
 # ─── Cálculos ────────────────────────────────────────────────────────────────
 def _f(d, k): return float(d.get(k, 0) or 0)
@@ -542,28 +559,66 @@ st.markdown('<div class="sec-hd">Desempenho por Campanha</div>', unsafe_allow_ht
 
 if campanhas:
     total_sp = sum(float(c.get("spend",0)) for c in campanhas) or 1
-    rows_c = []
+
+    # Monta linhas com status e recomendação
+    def _camp_status_html(c):
+        eff = camp_statuses.get(str(c.get("campaign_id","")), "UNKNOWN")
+        cls, label = _STATUS_MAP.get(eff, ("st-desconhecido", eff))
+        return f'<span class="{cls}">{label}</span>', label
+
+    all_rows_c = []
     for c in campanhas:
-        s  = float(c.get("spend",0))
-        ld = leads_de(c.get("actions",[]))
-        rows_c.append({
+        s   = float(c.get("spend",0))
+        ld  = leads_de(c.get("actions",[]))
+        ctr_= float(c.get("ctr",0))
+        fr_ = float(c.get("frequency",0))
+        rec = rec_badge(s, ctr_, fr_, media_ctr)
+        st_html, st_label = _camp_status_html(c)
+        all_rows_c.append({
+            "_rec":      rec,
+            "_status":   st_label,
+            "Status":    st_html,
+            "Acao":      badge_html(rec),
             "Campanha":  c.get("campaign_name","?"),
             "Gasto":     brl(s),
             "% Budget":  f"{s/total_sp*100:.1f}%",
             "Leads":     str(ld) if ld else "—",
             "CPL":       brl(s/ld) if ld else "—",
-            "CTR":       pct(c.get("ctr",0)),
+            "CTR":       pct(ctr_),
             "CPC":       brl(c.get("cpc",0)),
             "CPM":       brl(c.get("cpm",0)),
-            "Freq.":     f"{float(c.get('frequency',0)):.1f}x",
+            "Freq.":     f"{fr_:.1f}x",
             "Impressoes":f"{int(float(c.get('impressions',0))):,}".replace(",","."),
         })
-    cols_c = ["Campanha","Gasto","% Budget","Leads","CPL","CTR","CPC","CPM","Freq.","Impressoes"]
+
+    # Filtros
+    cf1, cf2, cf3 = st.columns([3, 2, 2])
+    with cf1:
+        rec_opts  = sorted({r["_rec"] for r in all_rows_c})
+        sel_rec_c = st.multiselect("Recomendacao:", rec_opts,
+                                   placeholder="Todas", key="rec_camp")
+    with cf2:
+        st_opts   = sorted({r["_status"] for r in all_rows_c if r["_status"] != "UNKNOWN"})
+        sel_st_c  = st.multiselect("Status:", st_opts,
+                                   placeholder="Todos", key="st_camp")
+    with cf3:
+        ord_c = st.selectbox("Ordenar:", ["Gasto","Leads","CTR","Frequencia"], key="ord_camp")
+
+    rows_c = all_rows_c
+    if sel_rec_c: rows_c = [r for r in rows_c if r["_rec"] in sel_rec_c]
+    if sel_st_c:  rows_c = [r for r in rows_c if r["_status"] in sel_st_c]
+    ORD_C = {"Gasto": lambda r: -float(r["Gasto"].replace("R$","").replace(".","").replace(",",".").strip() or 0),
+             "Leads": lambda r: -int(r["Leads"]) if r["Leads"].isdigit() else 0,
+             "CTR":   lambda r: -float(r["CTR"].replace("%","") or 0),
+             "Frequencia": lambda r: -float(r["Freq."].replace("x","") or 0)}
+    rows_c.sort(key=ORD_C[ord_c])
+
+    cols_c = ["Status","Acao","Campanha","Gasto","% Budget","Leads","CPL","CTR","CPC","CPM","Freq.","Impressoes"]
     st.markdown(html_table(rows_c, cols_c), unsafe_allow_html=True)
 
     with st.expander("Ver grafico de campanhas"):
-        df_bar = [(c.get("campaign_name","?")[:30], float(c.get("spend",0)))
-                  for c in campanhas if float(c.get("spend",0)) > 0]
+        df_bar = [(r["Campanha"][:30], float(r["Gasto"].replace("R$","").replace(".","").replace(",",".").strip() or 0))
+                  for r in rows_c if r["Gasto"] != "R$ 0,00"]
         if df_bar:
             nomes_b, vals_b = zip(*sorted(df_bar, key=lambda x: x[1]))
             fig3 = go.Figure(go.Bar(
@@ -584,15 +639,31 @@ st.markdown('<div class="sec-hd">Analise de Criativos</div>', unsafe_allow_html=
 
 ads_validos = [a for a in ads_data if float(a.get("spend",0)) > 0]
 
-col_f1, col_f2 = st.columns([3, 2])
-with col_f1:
-    camp_opts = sorted({a.get("campaign_name","?") for a in ads_validos})
-    sel_camps = st.multiselect("Filtrar por campanha:", camp_opts, placeholder="Todas as campanhas")
-with col_f2:
-    ordem = st.selectbox("Ordenar por:", ["Gasto","CTR","Leads","Frequencia"])
+def _rec(a):
+    return rec_badge(a.get("spend",0), a.get("ctr",0), a.get("frequency",0), media_ctr)
 
-if sel_camps:
-    ads_validos = [a for a in ads_validos if a.get("campaign_name") in sel_camps]
+def _ad_st_label(a):
+    eff = ad_statuses.get(str(a.get("ad_id","")), {}).get("effective_status","UNKNOWN")
+    return _STATUS_MAP.get(eff, ("","UNKNOWN"))[1]
+
+# Filtros — linha 1
+af1, af2, af3 = st.columns([3, 2, 2])
+with af1:
+    camp_opts = sorted({a.get("campaign_name","?") for a in ads_validos})
+    sel_camps = st.multiselect("Campanha:", camp_opts, placeholder="Todas", key="camp_ad")
+with af2:
+    rec_opts_a = ["ESCALAR","PAUSAR","MONITORAR","AGUARDAR"]
+    sel_rec_a  = st.multiselect("Recomendacao:", rec_opts_a, placeholder="Todas", key="rec_ad")
+with af3:
+    st_opts_a  = sorted({_ad_st_label(a) for a in ads_validos if _ad_st_label(a) != "UNKNOWN"})
+    sel_st_a   = st.multiselect("Status:", st_opts_a, placeholder="Todos", key="st_ad")
+
+# Filtro — linha 2 (ordem)
+ordem = st.selectbox("Ordenar por:", ["Gasto","CTR","Leads","Frequencia"], key="ord_ad")
+
+if sel_camps:  ads_validos = [a for a in ads_validos if a.get("campaign_name") in sel_camps]
+if sel_rec_a:  ads_validos = [a for a in ads_validos if _rec(a) in sel_rec_a]
+if sel_st_a:   ads_validos = [a for a in ads_validos if _ad_st_label(a) in sel_st_a]
 
 ORDEM_MAP = {
     "Gasto":      lambda a: -float(a.get("spend",0)),
@@ -603,9 +674,6 @@ ORDEM_MAP = {
 ads_validos.sort(key=ORDEM_MAP[ordem])
 
 if ads_validos:
-    # Contadores por status
-    def _rec(a):
-        return rec_badge(a.get("spend",0), a.get("ctr",0), a.get("frequency",0), media_ctr)
     n_e = sum(1 for a in ads_validos if _rec(a)=="ESCALAR")
     n_p = sum(1 for a in ads_validos if _rec(a)=="PAUSAR")
     n_m = sum(1 for a in ads_validos if _rec(a)=="MONITORAR")
@@ -670,6 +738,37 @@ if ads_validos:
 else:
     st.info("Nenhum anuncio com gasto no periodo selecionado.")
 
+
+# ─── GLOSSÁRIO ───────────────────────────────────────────────────────────────
+with st.expander("O que significam essas siglas? (clique para ver)"):
+    st.markdown(f"""
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;padding:4px 0;">
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPL — Custo por Lead</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto voce paga por cada lead gerado. Se o CPL for R$ 4,00, cada pessoa interessada custou R$ 4,00. <b>Quanto menor, melhor.</b></div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CTR — Taxa de Cliques</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">De cada 100 pessoas que viram o anuncio, quantas clicaram. CTR de 2% = 2 em cada 100 clicaram. <b>Acima de 1,5% e considerado bom.</b></div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPC — Custo por Clique</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto voce paga por cada clique no anuncio, independente de virar lead ou nao. <b>Quanto menor, mais eficiente.</b></div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">CPM — Custo por Mil Impressoes</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quanto custa exibir o anuncio 1.000 vezes. Indica o custo de "aparecer" para as pessoas, antes mesmo do clique.</div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">Frequencia</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Quantas vezes em media a mesma pessoa viu seu anuncio. Frequencia 5,5x = a mesma pessoa viu o anuncio 5,5 vezes. <b>Acima de 3,5x o publico comeca a se cansar (saturacao).</b></div>
+  </div>
+  <div style="background:#1a1a1a;border-left:4px solid {ORANGE};border-radius:6px;padding:10px 14px;">
+    <div style="color:{ORANGE};font-weight:800;font-size:11px;text-transform:uppercase;margin-bottom:4px;">Impressoes</div>
+    <div style="color:{TEXT};font-size:12px;line-height:1.6;">Total de vezes que o anuncio foi exibido na tela de alguem. Uma mesma pessoa pode gerar varias impressoes. Diferente de Alcance, que conta pessoas unicas.</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ─── ALERTAS ─────────────────────────────────────────────────────────────────
 st.markdown('<div class="sec-hd">Alertas e Recomendacoes</div>', unsafe_allow_html=True)
